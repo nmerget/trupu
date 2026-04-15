@@ -1,0 +1,12 @@
+services:
+  traefik:
+    command:
+      - --api.insecure=true
+    ports:
+      - '8080:8080'
+
+  trupu:
+    environment:
+      DEV_MODE: 'true'
+      DEV_TOKEN: 'trupu-dev-token'
+      ALLOWED_PUBLISHERS: 'test-org/test-repo:publish.yml'

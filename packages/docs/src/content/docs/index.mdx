@@ -1,0 +1,40 @@
+---
+title: trupu
+description: Trusted Publishing for Docker registries using GitHub Actions OIDC.
+template: splash
+hero:
+  tagline: Authenticate CI pushes to your private Docker registry using GitHub Actions OIDC — no long-lived tokens needed.
+  image:
+    file: ../../assets/trupu_icon.png
+  actions:
+    - text: Get Started
+      link: ./getting-started/introduction/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/nmerget/trupu
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why trupu?
+
+<CardGrid stagger>
+  <Card title="No static tokens" icon="approve-check">
+    Uses GitHub's OIDC tokens instead of long-lived credentials. Tokens are
+    short-lived and scoped to a specific workflow run.
+  </Card>
+  <Card title="Workflow-level trust" icon="setting">
+    Define trusted publishers as `owner/repo:workflow.yml` — only the exact
+    workflow you authorize can push images.
+  </Card>
+  <Card title="Traefik ForwardAuth" icon="puzzle">
+    Plugs into Traefik as a ForwardAuth middleware. Sits in front of any Docker
+    registry without modifying the registry itself.
+  </Card>
+  <Card title="Dev mode" icon="rocket">
+    Test the full flow locally with a static dev token — no GitHub Actions
+    required.
+  </Card>
+</CardGrid>

@@ -1,0 +1,33 @@
+http:
+  middlewares:
+    trupu-auth:
+      forwardAuth:
+        address: 'http://trupu:3000/auth'
+        authResponseHeaders:
+          - 'X-Trupu-Repository'
+          - 'X-Trupu-Workflow'
+          - 'X-Trupu-Ref'
+          - 'Www-Authenticate'
+
+  routers:
+    registry:
+      rule: 'PathPrefix(`/v2`)'
+      entryPoints:
+        - web
+      middlewares:
+        - trupu-auth
+      service: registry
+    registry-secure:
+      rule: 'PathPrefix(`/v2`)'
+      entryPoints:
+        - websecure
+      middlewares:
+        - trupu-auth
+      service: registry
+      tls: {}
+
+  services:
+    registry:
+      loadBalancer:
+        servers:
+          - url: 'http://registry:5000'

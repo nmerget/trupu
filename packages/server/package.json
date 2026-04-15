@@ -1,0 +1,50 @@
+{
+  "name": "@trupu/server",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Trusted Publishing for Docker registries using GitHub Actions OIDC",
+  "license": "MIT",
+  "keywords": [
+    "docker",
+    "registry",
+    "oidc",
+    "trusted-publishing",
+    "github-actions",
+    "traefik",
+    "forward-auth",
+    "authentication"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nmerget/trupu.git",
+    "directory": "packages/server"
+  },
+  "main": "dist/index.js",
+  "bin": {
+    "trupu": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "node esbuild.config.js",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "1.19.14",
+    "hono": "4.12.14",
+    "jose": "6.0.11"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "esbuild": "0.28.0",
+    "tsx": "4.19.4",
+    "typescript": "6.0.2",
+    "vitest": "4.1.4"
+  }
+}

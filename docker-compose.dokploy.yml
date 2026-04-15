@@ -1,0 +1,47 @@
+services:
+  trupu:
+    # Use the published image from GitHub Packages
+    image: ghcr.io/nmerget/trupu:latest
+    # Or build from source:
+    # build:
+    #   context: .
+    #   dockerfile: packages/server/Dockerfile
+    environment:
+      PORT: '3000'
+      # TODO: Change to your owner/repo:workflow.yml
+      ALLOWED_PUBLISHERS: 'your-org/your-repo:publish.yml'
+      # TODO: Change to https://your-registry-domain.com
+      OIDC_AUDIENCE: 'https://registry.example.com'
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.trupu.loadbalancer.server.port=3000
+
+  registry:
+    image: registry:2
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: 'true'
+    volumes:
+      - registry-data:/var/lib/registry
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      # TODO: Change registry.example.com to your registry domain
+      - traefik.http.routers.registry.rule=Host(`registry.example.com`)
+      - traefik.http.routers.registry.entrypoints=websecure
+      - traefik.http.routers.registry.tls=true
+      - traefik.http.routers.registry.tls.certresolver=letsencrypt
+      - traefik.http.routers.registry.middlewares=trupu-auth
+      - traefik.http.services.registry.loadbalancer.server.port=5000
+      # ForwardAuth middleware
+      - traefik.http.middlewares.trupu-auth.forwardauth.address=http://trupu:3000/auth
+      - traefik.http.middlewares.trupu-auth.forwardauth.authResponseHeaders=X-Trupu-Repository,X-Trupu-Workflow,X-Trupu-Ref,Www-Authenticate
+
+volumes:
+  registry-data:
+
+networks:
+  dokploy-network:
+    external: true

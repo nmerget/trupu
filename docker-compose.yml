@@ -1,0 +1,26 @@
+services:
+  traefik:
+    image: traefik:v3.4
+    ports:
+      - '5000:443'
+    volumes:
+      - ./traefik:/etc/traefik:ro
+
+  trupu:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    environment:
+      PORT: '3000'
+      ALLOWED_PUBLISHERS: 'your-org/your-repo:publish.yml'
+      OIDC_AUDIENCE: 'https://registry.example.com'
+
+  registry:
+    image: registry:2
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: 'true'
+    volumes:
+      - registry-data:/var/lib/registry
+
+volumes:
+  registry-data:
