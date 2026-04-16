@@ -41,42 +41,7 @@ This starts three services:
 
 ## GitHub Actions workflow
 
-In your repository, create `.github/workflows/publish.yml`:
-
-```yaml
-name: Publish Image
-
-on:
-  push:
-    tags: ['v*']
-
-permissions:
-  id-token: write
-  contents: read
-
-jobs:
-  push:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Get OIDC token
-        id: oidc
-        run: |
-          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://registry.example.com" | jq -r .value)
-          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-
-      - name: Login to registry
-        run: echo "${{ steps.oidc.outputs.token }}" | docker login registry.example.com:5000 -u oauth2 --password-stdin
-
-      - name: Build and push
-        run: |
-          docker build -t registry.example.com:5000/my-image:latest .
-          docker push registry.example.com:5000/my-image:latest
-```
-
-The `id-token: write` permission is required for GitHub to issue OIDC tokens. The `audience` must match your `OIDC_AUDIENCE` environment variable.
+See the [GitHub Actions Workflow](../../reference/github-actions-workflow/) reference for a complete example workflow that pushes images to your trupu-protected registry.
 
 ## Local development
 
