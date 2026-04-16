@@ -1,0 +1,115 @@
+# trupu
+
+> Trusted Publishing for Docker registries using GitHub Actions OIDC.
+
+trupu is an authentication server that enables passwordless Docker image pushes from GitHub Actions to a self-hosted Docker registry. It uses OpenID Connect (OIDC) tokens instead of long-lived credentials, implementing the OpenSSF Trusted Publishers standard.
+
+## Architecture
+
+GitHub Actions → Traefik (ForwardAuth) → trupu (/auth) → Docker Registry
+
+- Traefik intercepts every request to the registry and forwards it to trupu's /auth endpoint
+- trupu verifies the GitHub OIDC JWT against GitHub's JWKS
+- On success, the request is proxied to the registry
+- On failure, 401/403 is returned
+
+## Project structure
+
+This is a pnpm monorepo with two packages:
+
+- packages/server — The Hono-based auth server (published as @trupu/server on npm and ghcr.io/nmerget/trupu on Docker)
+- packages/docs — Astro Starlight documentation site (deployed to GitHub Pages)
+
+## Server
+
+The server is built with Hono on Node.js. It uses esbuild to bundle into a single minified file (~54kb).
+
+### Key files
+
+- src/index.ts — Entry point, wires provider + app + serve()
+- src/app.ts — createApp(provider, config) factory, decoupled from serve() for testability
+- src/config.ts — General server config (PORT, DEV_MODE, DEV_TOKEN)
+- src/provider/types.ts — Provider interface and VerifiedIdentity type
+- src/provider/github/config.ts — GitHub-specific config (ALLOWED_PUBLISHERS, ALLOWED_REFS, OIDC_AUDIENCE), parsePublishers()
+- src/provider/github/index.ts — createGitHubProvider(), extractWorkflow(), matchRef()
+
+### Provider interface
+
+```typescript
+interface VerifiedIdentity {
+  repository: string;
+  workflow: string;
+  ref: string;
+}
+
+interface Provider {
+  verifyToken(token: string): Promise<VerifiedIdentity>;
+}
+```
+
+The provider pattern allows adding new CI providers (e.g. GitLab) by implementing this interface in a new provider/ subdirectory.
+
+### Endpoints
+
+- GET /auth — Traefik ForwardAuth endpoint. Accepts Bearer (OIDC token) and Basic (docker login) auth schemes. Returns 200 with identity headers, 401 with Www-Authenticate challenge, or 403 on invalid token.
+- GET /healthz — Health check, returns { status: "ok" }
+
+### Trusted publisher format
+
+Publishers are configured as `owner/repo:workflow.yml` via the ALLOWED_PUBLISHERS environment variable. The workflow filename is extracted from the GitHub OIDC token's `job_workflow_ref` claim.
+
+### Ref matching
+
+ALLOWED_REFS supports exact matches and trailing wildcard patterns (e.g. `refs/tags/v*` matches `refs/tags/v1.0.0`).
+
+## Environment variables
+
+- PORT (default: 3000) — Server port
+- DEV_MODE (default: false) — Skip OIDC verification, accept DEV_TOKEN
+- DEV_TOKEN (default: trupu-dev-token) — Static token for dev mode
+- ALLOWED_PUBLISHERS — Comma-separated owner/repo:workflow.yml entries
+- ALLOWED_REFS — Comma-separated ref patterns (supports trailing *)
+- OIDC_AUDIENCE (default: https://registry.example.com) — Expected aud claim
+
+## Docker Compose files
+
+- docker-compose.yml — Local development with bundled Traefik (file provider)
+- docker-compose.dev.yml — Dev override enabling DEV_MODE and Traefik dashboard
+- docker-compose.dokploy.yml — Production deployment on Dokploy (uses Docker labels, external dokploy-network)
+
+## Testing
+
+Tests use vitest with mock providers. 23 tests covering:
+- Auth endpoint (Bearer, Basic, missing auth, dev mode)
+- GitHub provider (parsePublishers, extractWorkflow, matchRef)
+
+Run: `pnpm test`
+
+## CI/CD
+
+GitHub Actions workflow (.github/workflows/default.yml):
+- ci — lint, format:check, test, build
+- deploy — Astro docs to GitHub Pages
+- release — Changesets version + npm publish with provenance
+- publish-docker — Build and push Docker image to ghcr.io
+
+Permissions follow least privilege: read-only default, elevated per job.
+
+## Tech stack
+
+- Runtime: Node.js 24
+- Framework: Hono + @hono/node-server
+- OIDC: jose (JWT verification via JWKS)
+- Bundler: esbuild (single-file minified output)
+- Tests: vitest
+- Docs: Astro Starlight
+- Package manager: pnpm
+- Linting: eslint + typescript-eslint
+- Formatting: prettier
+
+## Links
+
+- Documentation: https://nmerget.github.io/trupu/
+- npm: https://www.npmjs.com/package/@trupu/server
+- Docker: ghcr.io/nmerget/trupu
+- GitHub: https://github.com/nmerget/trupu

@@ -47,6 +47,10 @@ export default defineConfig({
           items: [
             { label: 'Auth Flow', slug: 'reference/auth-flow' },
             { label: 'API Endpoints', slug: 'reference/api-endpoints' },
+            {
+              label: 'GitHub Actions Workflow',
+              slug: 'reference/github-actions-workflow',
+            },
           ],
         },
       ],

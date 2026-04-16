@@ -16,10 +16,12 @@ services:
       - dokploy-network
     labels:
       - traefik.enable=true
-      - traefik.http.services.trupu.loadbalancer.server.port=3000
+      - traefik.http.services.trupu-server.loadbalancer.server.port=3000
 
   registry:
     image: registry:2
+    ports:
+      - '127.0.0.1:6000:5000'
     environment:
       REGISTRY_STORAGE_DELETE_ENABLED: 'true'
     volumes:
@@ -29,12 +31,13 @@ services:
     labels:
       - traefik.enable=true
       # TODO: Change registry.example.com to your registry domain
-      - traefik.http.routers.registry.rule=Host(`registry.example.com`)
-      - traefik.http.routers.registry.entrypoints=websecure
-      - traefik.http.routers.registry.tls=true
-      - traefik.http.routers.registry.tls.certresolver=letsencrypt
-      - traefik.http.routers.registry.middlewares=trupu-auth
-      - traefik.http.services.registry.loadbalancer.server.port=5000
+      - traefik.http.routers.trupu-registry.rule=Host(`registry.example.com`)
+      - traefik.http.routers.trupu-registry.entrypoints=websecure
+      - traefik.http.routers.trupu-registry.tls=true
+      - traefik.http.routers.trupu-registry.tls.certresolver=letsencrypt
+      - traefik.http.routers.trupu-registry.middlewares=trupu-auth
+      - traefik.http.routers.trupu-registry.service=trupu-registry-svc
+      - traefik.http.services.trupu-registry-svc.loadbalancer.server.port=5000
       # ForwardAuth middleware
       - traefik.http.middlewares.trupu-auth.forwardauth.address=http://trupu:3000/auth
       - traefik.http.middlewares.trupu-auth.forwardauth.authResponseHeaders=X-Trupu-Repository,X-Trupu-Workflow,X-Trupu-Ref,Www-Authenticate

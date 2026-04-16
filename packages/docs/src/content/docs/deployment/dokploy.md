@@ -39,10 +39,12 @@ services:
       - dokploy-network
     labels:
       - traefik.enable=true
-      - traefik.http.services.trupu.loadbalancer.server.port=3000
+      - traefik.http.services.trupu-server.loadbalancer.server.port=3000
 
   registry:
     image: registry:2
+    ports:
+      - '127.0.0.1:6000:5000'
     environment:
       REGISTRY_STORAGE_DELETE_ENABLED: 'true'
     volumes:
@@ -52,12 +54,14 @@ services:
     labels:
       - traefik.enable=true
       # TODO: Change registry.example.com to your registry domain
-      - traefik.http.routers.registry.rule=Host(`registry.example.com`)
-      - traefik.http.routers.registry.entrypoints=websecure
-      - traefik.http.routers.registry.tls=true
-      - traefik.http.routers.registry.tls.certresolver=letsencrypt
-      - traefik.http.routers.registry.middlewares=trupu-auth
-      - traefik.http.services.registry.loadbalancer.server.port=5000
+      - traefik.http.routers.trupu-registry.rule=Host(`registry.example.com`)
+      - traefik.http.routers.trupu-registry.entrypoints=websecure
+      - traefik.http.routers.trupu-registry.tls=true
+      - traefik.http.routers.trupu-registry.tls.certresolver=letsencrypt
+      - traefik.http.routers.trupu-registry.middlewares=trupu-auth
+      - traefik.http.routers.trupu-registry.service=trupu-registry-svc
+      - traefik.http.services.trupu-registry-svc.loadbalancer.server.port=5000
+      # ForwardAuth middleware
       - traefik.http.middlewares.trupu-auth.forwardauth.address=http://trupu:3000/auth
       - traefik.http.middlewares.trupu-auth.forwardauth.authResponseHeaders=X-Trupu-Repository,X-Trupu-Workflow,X-Trupu-Ref,Www-Authenticate
 
@@ -77,6 +81,10 @@ The key values to change:
 
 :::note
 The registry has no public port of its own. All external traffic goes through Dokploy's Traefik, which routes requests based on the `Host()` domain. Traefik also handles TLS via Let's Encrypt automatically.
+:::
+
+:::caution
+Dokploy auto-generates Traefik labels for each service. To avoid conflicts, all Traefik router/service/middleware names in this compose are prefixed with `trupu-`. Make sure to disable Dokploy's built-in domain configuration for this compose project — the labels handle routing directly.
 :::
 
 ## Step 3: Deploy
@@ -100,47 +108,7 @@ Dokploy's Traefik will automatically:
 
 ## Step 4: Configure GitHub Actions
 
-In your repository, create `.github/workflows/publish.yml`:
-
-```yaml
-name: Publish Image
-
-on:
-  push:
-    tags: ['v*']
-
-permissions:
-  id-token: write
-  contents: read
-
-jobs:
-  push:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Get OIDC token
-        id: oidc
-        run: |
-          # TODO: Change audience to match your OIDC_AUDIENCE
-          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://registry.example.com" | jq -r .value)
-          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-
-      - name: Login to registry
-        # TODO: Change to your registry domain
-        run: echo "${{ steps.oidc.outputs.token }}" | docker login registry.example.com -u oauth2 --password-stdin
-
-      - name: Build and push
-        run: |
-          # TODO: Change to your registry domain and image name
-          docker build -t registry.example.com/my-image:latest .
-          docker push registry.example.com/my-image:latest
-```
-
-:::caution
-The `audience` parameter in the OIDC token request must exactly match your `OIDC_AUDIENCE` environment variable.
-:::
+See the [GitHub Actions Workflow](../../reference/github-actions-workflow/) reference for a complete example workflow. Set the `REGISTRY` env variable to your registry domain from Step 2.
 
 ## How it works on Dokploy
 
@@ -169,22 +137,40 @@ The `docker-compose.dokploy.yml` differs from the local development setup:
 
 ## Pulling images from the registry
 
-Pushes from GitHub Actions go through Traefik and require OIDC authentication. But services running on the same Dokploy server can pull directly from the registry container, bypassing Traefik entirely — no authentication needed.
+The registry's port 5000 is bound to `127.0.0.1:6000` on the host — accessible from the server itself but not from the internet. External traffic goes through Traefik with OIDC auth, while internal services pull directly via localhost without authentication.
 
-Use the registry's internal hostname and port in your Dokploy compose services:
+Other Dokploy compose services can pull images using `localhost:6000`:
 
 ```yaml
 services:
   app:
-    image: registry:5000/my-image:latest
+    image: localhost:6000/my-image:latest
     networks:
       - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true
 ```
 
-This works because the registry container is on the `dokploy-network` and exposes port 5000 internally without any auth middleware.
+Add `localhost:6000` to the Docker daemon's insecure registries on your Dokploy server (the registry runs plain HTTP internally).
+
+Edit `/etc/docker/daemon.json`:
+
+```json
+{
+  "insecure-registries": ["localhost:6000"]
+}
+```
+
+Then restart Docker:
+
+```bash
+sudo systemctl restart docker
+```
 
 :::caution
-External pulls (from outside the Docker network) must go through Traefik and require authentication, just like pushes.
+External pulls must go through Traefik at `registry.example.com` and require OIDC authentication.
 :::
 
 ## Garbage collection
@@ -196,14 +182,15 @@ The Docker registry does not automatically clean up deleted image layers. Over t
 1. In the Dokploy dashboard, open your trupu **Compose** service
 2. Go to the **Schedule Jobs** tab
 3. Create a new **Compose Job** targeting the `registry` service
-4. Set the command to:
+4. Set **Shell Type** to **Sh**
+5. Set the command to:
 
 ```bash
 registry garbage-collect /etc/docker/registry/config.yml --delete-untagged
 ```
 
-5. Set the cron schedule — for example `0 3 * * *` to run daily at 3 AM
-6. Save the job
+6. Set the cron schedule — for example `0 3 * * *` to run daily at 3 AM
+7. Save the job
 
 The `--delete-untagged` flag also removes manifests that are no longer referenced by any tag.
 
