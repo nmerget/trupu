@@ -36,7 +36,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@hono/node-server": "1.19.14",
+    "@hono/node-server": "2.0.0",
     "hono": "4.12.14",
     "jose": "6.2.2"
   },
@@ -44,7 +44,7 @@
     "@types/node": "25.6.0",
     "esbuild": "0.28.0",
     "tsx": "4.21.0",
-    "typescript": "6.0.2",
-    "vitest": "4.1.4"
+    "typescript": "6.0.3",
+    "vitest": "4.1.5"
   }
 }
