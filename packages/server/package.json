@@ -37,8 +37,8 @@
   },
   "dependencies": {
     "@hono/node-server": "2.0.0",
-    "hono": "4.12.14",
-    "jose": "6.2.2"
+    "hono": "4.12.15",
+    "jose": "6.2.3"
   },
   "devDependencies": {
     "@types/node": "25.6.0",
